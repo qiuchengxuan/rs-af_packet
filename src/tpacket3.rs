@@ -1,7 +1,5 @@
 use libc::{c_int, c_uint};
-use nom::{
-    number::complete::{le_u16, le_u32, le_u64}
-};
+use nom::number::complete::{le_u16, le_u32, le_u64};
 
 pub const TP_STATUS_KERNEL: u8 = 0;
 pub const TP_STATUS_USER: u8 = 1;
@@ -124,17 +122,22 @@ named!(
 named!(
     get_tpacket_bd_header<TpacketBDHeader>,
     do_parse!(
-        block_status: le_u32 >> num_pkts: le_u32 >> offset_to_first_pkt: le_u32 >> blk_len: le_u32
-            >> seq_num: le_u64 >> ts_first_pkt: get_tpacket_bdts
-            >> ts_last_pkt: get_tpacket_bdts >> (TpacketBDHeader {
-            block_status,
-            num_pkts,
-            offset_to_first_pkt,
-            blk_len,
-            seq_num,
-            ts_first_pkt,
-            ts_last_pkt
-        })
+        block_status: le_u32
+            >> num_pkts: le_u32
+            >> offset_to_first_pkt: le_u32
+            >> blk_len: le_u32
+            >> seq_num: le_u64
+            >> ts_first_pkt: get_tpacket_bdts
+            >> ts_last_pkt: get_tpacket_bdts
+            >> (TpacketBDHeader {
+                block_status,
+                num_pkts,
+                offset_to_first_pkt,
+                blk_len,
+                seq_num,
+                ts_first_pkt,
+                ts_last_pkt
+            })
     )
 );
 
@@ -148,13 +151,11 @@ named!(
 named!(
     get_tpacket_hdr_variant1<TpacketHdrVariant1>,
     do_parse!(
-        tp_rxhash: le_u32 >> tp_vlan_tci: le_u32 >> tp_vlan_tpid: le_u16 >> tp_padding: le_u16
-            >> (TpacketHdrVariant1 {
-                tp_rxhash,
-                tp_vlan_tci,
-                tp_vlan_tpid,
-                tp_padding
-            })
+        tp_rxhash: le_u32
+            >> tp_vlan_tci: le_u32
+            >> tp_vlan_tpid: le_u16
+            >> tp_padding: le_u16
+            >> (TpacketHdrVariant1 { tp_rxhash, tp_vlan_tci, tp_vlan_tpid, tp_padding })
     )
 );
 

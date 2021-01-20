@@ -1,7 +1,9 @@
 extern crate libc;
 
-use libc::{c_char, c_int, c_short, c_uint, c_ulong, c_void, getsockopt, if_nametoindex, ioctl,
-           setsockopt, socket, socklen_t, ETH_P_ALL, SOCK_RAW, SOL_PACKET};
+use libc::{
+    c_char, c_int, c_short, c_uint, c_ulong, c_void, getsockopt, if_nametoindex, ioctl, setsockopt,
+    socket, socklen_t, ETH_P_ALL, SOCK_RAW, SOL_PACKET,
+};
 pub use libc::{AF_PACKET, IFF_PROMISC, PF_PACKET};
 
 use std::ffi::CString;
@@ -31,9 +33,7 @@ struct IfReqUnion {
 
 impl Default for IfReqUnion {
     fn default() -> IfReqUnion {
-        IfReqUnion {
-            data: [0; IFREQUNIONSIZE],
-        }
+        IfReqUnion { data: [0; IFREQUNIONSIZE] }
     }
 }
 
@@ -74,10 +74,7 @@ impl IfReq {
 
 impl Default for IfReq {
     fn default() -> IfReq {
-        IfReq {
-            ifr_name: [0; IFNAMESIZE],
-            union: IfReqUnion::default(),
-        }
+        IfReq { ifr_name: [0; IFNAMESIZE], union: IfReqUnion::default() }
     }
 }
 
@@ -109,7 +106,13 @@ impl Socket {
 
     fn ioctl(&self, ident: c_ulong, if_req: IfReq) -> io::Result<IfReq> {
         let mut req: Box<IfReq> = Box::new(if_req);
-        match unsafe { ioctl(self.fd, ident, &mut *req) } {
+        let retval = match () {
+            #[cfg(target_arch = "mips")]
+            _ => unsafe { ioctl(self.fd, ident as c_int, &mut *req) },
+            #[cfg(target_arch = "x86_64")]
+            _ => unsafe { ioctl(self.fd, ident, &mut *req) },
+        };
+        match retval {
             -1 => Err(Error::last_os_error()),
             _ => Ok(*req),
         }

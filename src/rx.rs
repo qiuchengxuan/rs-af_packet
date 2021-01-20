@@ -2,9 +2,11 @@ use std;
 use std::io::{self, Error};
 use std::mem;
 
-use libc::{bind, c_int, c_void, getpid, mmap, poll, pollfd, sockaddr, sockaddr_ll, socklen_t,
-           AF_PACKET, ETH_ALEN, ETH_P_IP, MAP_LOCKED, MAP_NORESERVE, MAP_SHARED, POLLERR, POLLIN,
-           PROT_READ, PROT_WRITE};
+use libc::{
+    bind, c_int, c_void, getpid, mmap, poll, pollfd, sockaddr, sockaddr_ll, socklen_t, AF_PACKET,
+    ETH_ALEN, ETH_P_IP, MAP_LOCKED, MAP_NORESERVE, MAP_SHARED, POLLERR, POLLIN, PROT_READ,
+    PROT_WRITE,
+};
 
 use socket::{self, Socket, IFF_PROMISC};
 
@@ -134,18 +136,18 @@ impl Ring {
             opts: tpacket3::TpacketReq3::default(),
         };
 
-        ring.socket.set_flag(IFF_PROMISC as u64)?;
-        ring.socket.setsockopt(
-            PACKET_VERSION,
-            tpacket3::TPACKET_V3,
-        )?;
-        ring.socket
-            .setsockopt(PACKET_RX_RING, ring.opts.clone())?;
+        match () {
+            #[cfg(target_arch = "mips")]
+            _ => ring.socket.set_flag(IFF_PROMISC as u32)?,
+            #[cfg(target_arch = "x86_64")]
+            _ => ring.socket.set_flag(IFF_PROMISC as u64)?,
+        }
+        ring.socket.setsockopt(PACKET_VERSION, tpacket3::TPACKET_V3)?;
+        ring.socket.setsockopt(PACKET_RX_RING, ring.opts.clone())?;
         ring.mmap_rx_ring()?;
         ring.bind_rx_ring()?;
         let fanout = (unsafe { getpid() } & 0xFFFF) | (PACKET_FANOUT_HASH << 16);
-        ring.socket
-            .setsockopt(PACKET_FANOUT, fanout)?;
+        ring.socket.setsockopt(PACKET_FANOUT, fanout)?;
         Ok(ring)
     }
 
@@ -158,17 +160,18 @@ impl Ring {
             opts: settings.ring_settings,
         };
 
-        ring.socket.set_flag(IFF_PROMISC as u64)?;
-        ring.socket.setsockopt(
-            PACKET_VERSION,
-            tpacket3::TPACKET_V3)?;
-        ring.socket
-            .setsockopt(PACKET_RX_RING, ring.opts.clone())?;
+        match () {
+            #[cfg(target_arch = "mips")]
+            _ => ring.socket.set_flag(IFF_PROMISC as u32)?,
+            #[cfg(target_arch = "x86_64")]
+            _ => ring.socket.set_flag(IFF_PROMISC as u64)?,
+        }
+        ring.socket.setsockopt(PACKET_VERSION, tpacket3::TPACKET_V3)?;
+        ring.socket.setsockopt(PACKET_RX_RING, ring.opts.clone())?;
         ring.mmap_rx_ring()?;
         ring.bind_rx_ring()?;
         let fanout = (unsafe { getpid() } & 0xFFFF) | (settings.fanout_method << 16);
-        ring.socket
-            .setsockopt(PACKET_FANOUT, fanout)?;
+        ring.socket.setsockopt(PACKET_FANOUT, fanout)?;
         Ok(ring)
     }
 
@@ -214,7 +217,10 @@ impl Ring {
             sll_protocol: ETH_P_IP.to_be() as u16,
             sll_ifindex: self.socket.if_index as c_int,
             sll_hatype: 519,
-            sll_pkttype: (PACKET_HOST | PACKET_BROADCAST | PACKET_MULTICAST | PACKET_OTHERHOST
+            sll_pkttype: (PACKET_HOST
+                | PACKET_BROADCAST
+                | PACKET_MULTICAST
+                | PACKET_OTHERHOST
                 | PACKET_OUTGOING),
             sll_halen: ETH_ALEN as u8,
             sll_addr: [0; 8],
@@ -233,11 +239,7 @@ impl Ring {
 
     #[inline]
     fn wait_for_block(&self) {
-        let mut pfd = pollfd {
-            fd: self.socket.fd,
-            events: POLLIN | POLLERR,
-            revents: 0,
-        };
+        let mut pfd = pollfd { fd: self.socket.fd, events: POLLIN | POLLERR, revents: 0 };
 
         unsafe {
             poll(&mut pfd, 1, -1);
@@ -263,11 +265,7 @@ impl Ring {
             }
         };
 
-        let blk = Block {
-            block_desc: block_desc.1,
-            packets: Vec::new(),
-            raw_data: &mut block[..],
-        };
+        let blk = Block { block_desc: block_desc.1, packets: Vec::new(), raw_data: &mut block[..] };
 
         Some(blk)
     }
@@ -279,15 +277,7 @@ unsafe impl Send for Ring {}
 ///getsockopt() is called
 #[inline]
 pub fn get_rx_statistics(fd: i32) -> Result<tpacket3::TpacketStatsV3, Error> {
-    let mut optval = tpacket3::TpacketStatsV3 {
-        tp_packets: 0,
-        tp_drops: 0,
-        tp_freeze_q_cnt: 0,
-    };
-    socket::get_sock_opt(
-        fd,
-        PACKET_STATISTICS,
-        &(&mut optval as *mut _ as *mut c_void),
-    )?;
+    let mut optval = tpacket3::TpacketStatsV3 { tp_packets: 0, tp_drops: 0, tp_freeze_q_cnt: 0 };
+    socket::get_sock_opt(fd, PACKET_STATISTICS, &(&mut optval as *mut _ as *mut c_void))?;
     Ok(optval)
 }

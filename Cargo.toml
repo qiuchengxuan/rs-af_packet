@@ -12,4 +12,4 @@ keywords = ["pcap", "af_packet", "packet", "security", "linux"]
 license = "GPL-3.0"
 name = "af_packet"
 repository = "https://gitlab.com/DominoTree/rs-af_packet"
-version = "0.3.1"
+version = "0.3.2"
